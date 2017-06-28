@@ -1,0 +1,12 @@
+machine:
+  node:
+    version: node
+
+test:
+  pre:
+    - npm run build
+  override:
+    - npm test
+    - mkdir -p $CIRCLE_TEST_REPORTS/reports
+    - npm install tap-xunit
+    - cat tap-tests.log | tap-xunit > $CIRCLE_TEST_REPORTS/reports/tap-tests.xml
