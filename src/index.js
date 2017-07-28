@@ -1,6 +1,7 @@
 import R from 'ramda';
 import flyd from 'flyd';
-import { fromJS, Seq, Map } from 'immutable';
+import filter from 'flyd/module/filter';
+import { fromJS, Seq } from 'immutable';
 import WebSocket from 'universal-websocket-client';
 
 /**
@@ -61,13 +62,9 @@ const connection = (url, writeStream) => {
     JSON.parse,
     R.prop('data')
   ));
-  socket.addEventListener('close', R.compose(
-    R.tap(writeStream.end),
-    R.tap(readStream.end),
-    R.always(true)
-  ));
-  flyd.on(socket.close, writeStream.end);
-  flyd.on(socket.close, readStream.end);
+  socket.addEventListener('close', () => readStream.end(true));
+  flyd.on(() => socket.close(), writeStream.end);
+  flyd.on(() => socket.close(), readStream.end);
   writeStream.map(JSON.parse).map(socket.send);
   return readStream;
 };
@@ -83,31 +80,39 @@ const connection = (url, writeStream) => {
  */
 const kumara = (url, {
   writeStream = flyd.stream()
-} = {}) => flyd.scan(
-  (state, [direction, message]) => {
-    if (!state.has('statistics')) { // Initial update
-      return fromJS({
-        statistics: {
-          errors: 0,
-          sent: 0,
-          received: 0,
-          [direction]: 1
-        },
-        server: message
-      });
-    }
-    const newState = state.updateIn(
-      ['statistics', direction],
-      R.add(1)
-    );
-    if (direction === 'sent') return newState;
-    return update(newState, message);
-  },
-  new Map(),
-  flyd.merge(
-    writeStream.map(v => ['sent', v]),
-    connection(url, writeStream).map(v => ['received', v])
-  )
+} = {}) => R.compose(
+  R.tap(s => flyd.on(writeStream.end, s.end)),
+  filter(R.identity),
+  flyd.scan(
+    (state, [direction, message]) => {
+      if (!state) { // Initial update
+        return fromJS({
+          statistics: {
+            errors: 0,
+            sent: 0,
+            received: 0,
+            [direction]: 1
+          },
+          server: message
+        });
+      }
+      const newState = state.updateIn(
+        ['statistics', direction],
+        R.add(1)
+      );
+      if (direction === 'sent') return newState;
+      return update(newState, message);
+    },
+    undefined
+  ),
+  readStream => flyd.merge(
+    writeStream.map(m => ['sent', m]),
+    readStream.map(m => ['received', m])
+  ),
+  connection
+)(
+  url,
+  writeStream
 );
 
 export {
