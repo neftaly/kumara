@@ -1,7 +1,9 @@
 # 🍠 Kūmara [![CircleCI](https://circleci.com/gh/neftaly/kumara.svg?style=shield)](https://circleci.com/gh/neftaly/kumara)
 
 Kumara is a streaming [Signal K](http://signalk.org) implementation.
-You can use it to connect to a [sK delta stream](http://signalk.org/specification/master/streaming_api.html). In return, you get a live-updating sK state object. You can also send messages back to the server, such as subscribe/unsubscribe requests, or commands for connected devices.
+It connects to a [sK delta stream](http://signalk.org/specification/master/streaming_api.html) and returns a live-updating sK state object.
+
+You can also send messages back to the server, such as subscribe/unsubscribe requests, or commands for connected devices.
 
 ## API
 ### `kumara` (**url**, **options**)
@@ -16,10 +18,10 @@ Returns [Flyd](https://github.com/paldepind/flyd) stream of [immutable](https://
 import kumara from 'kumara';
 import flyd from 'flyd';
 
-const writeStream = flyd.stream(); // Optional 
+const writeStream = flyd.stream();
 
 const sK = kumara('ws://demo.signalk.org/signalk/v1/stream?subscribe=all', {
-  writeStream
+  writeStream // Optional 
 });
 
 sK.map(
@@ -73,7 +75,7 @@ This would return a bunch of messages such as the following:
 
 To look up the wind data of the current vessel:
 
-```
+```js
 sK.map(
   // Equivalent of `state.vessels[state.server.self].environment.wind`
   state => state.getIn([
@@ -121,7 +123,7 @@ writeStream({
         timestamp: '2014-08-15-16:00:05.538',
         src: '115'
       },
-      values": [
+      values: [
         {
           path: 'navigation.logTrip',
           value: 43374
