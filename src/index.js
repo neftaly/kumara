@@ -76,10 +76,12 @@ const connection = (url, writeStream) => {
  * @param {string} url
  * @param {object} options
  * @param {flyd.stream} [options.writeStream=flyd.stream] outgoing data stream
+ * @param {boolean} [options.statistics=true] add statistics object
  * @returns {flyd.stream<immutable.Map>}
  */
 const kumara = (url, {
-  writeStream = flyd.stream()
+  writeStream = flyd.stream(),
+  statistics = true
 } = {}) => R.compose(
   R.tap(s => flyd.on(writeStream.end, s.end)),
   filter(R.identity),
@@ -87,19 +89,20 @@ const kumara = (url, {
     (state, [direction, message]) => {
       if (!state) { // Initial update
         return fromJS({
-          statistics: {
-            errors: 0,
-            sent: 0,
-            received: 0,
-            [direction]: 1
-          },
-          server: message
+          server: message,
+          statistics: statistics
+            ? {
+              errors: 0,
+              sent: 0,
+              received: 0,
+              [direction]: 1
+            }
+            : undefined
         });
       }
-      const newState = state.updateIn(
-        ['statistics', direction],
-        R.add(1)
-      );
+      const newState = statistics
+        ? state.updateIn(['statistics', direction], R.add(1))
+        : state;
       if (direction === 'sent') return newState;
       return update(newState, message);
     },

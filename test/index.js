@@ -86,6 +86,30 @@ tape.test('Receive data', test => {
   );
 });
 
+tape.test('Statistics', test => {
+  test.plan(1);
+
+  const stream = kumara(
+    'ws://demo.signalk.org/signalk/v1/stream?subscribe=all',
+    { statistics: false }
+  );
+
+  stream.map(
+    state => state && state.toJS()
+  ).map(
+    data => {
+      if (!data) return;
+      test.equal(
+        data.statistics,
+        undefined,
+        'Statistics can be disabled'
+      );
+      stream.end(true);
+      test.end();
+    }
+  );
+});
+
 // kumara('ws://demo.signalk.org/signalk/v1/stream?subscribe=all').map(
 //   state => state.toJS()
 // ).map(

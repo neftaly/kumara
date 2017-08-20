@@ -10,8 +10,9 @@ You can also send messages back to the server, such as subscribe/unsubscribe req
 * *url*: sK websocket URL
 * *url*: optional options object
   * *writeStream*: Flyd stream of outgoing sK messages
+  * *statistics* **true**: Boolean whether to add a `statistics` prop
 
-Returns [Flyd](https://github.com/paldepind/flyd) stream of [immutable](https://facebook.github.io/immutable-js/) sK states, with an additional 'statistics' property.
+Returns [Flyd](https://github.com/paldepind/flyd) stream of [immutable](https://facebook.github.io/immutable-js/) sK states, with an optional `statistics` property.
 
 ## Example
 ```js
@@ -21,6 +22,7 @@ import flyd from 'flyd';
 const writeStream = flyd.stream();
 
 const sK = kumara('ws://demo.signalk.org/signalk/v1/stream?subscribe=all', {
+  statistics: true, // Default
   writeStream // Optional 
 });
 
