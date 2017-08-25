@@ -1,6 +1,6 @@
 {
   "name": "kumara",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Streaming Signal K implementation",
   "license": "MIT",
   "repository": "https://github.com/neftaly/kumara",
@@ -21,7 +21,6 @@
   },
   "dependencies": {
     "flyd": "^0.2.4",
-    "flyd-skip": "0.0.2",
     "immutable": "^3.8.1",
     "ramda": "^0.24.1",
     "universal-websocket-client": "^1.0.1"

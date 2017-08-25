@@ -1,7 +1,7 @@
 import R from 'ramda';
+import { fromJS, Seq, List } from 'immutable';
 import flyd from 'flyd';
 import filter from 'flyd/module/filter';
-import { fromJS, Seq, List } from 'immutable';
 import { wsstream } from './lib';
 
 /**
@@ -31,9 +31,11 @@ const update = R.curry(
     'updates',
     new List()
   ).flatMap(
+    // Convert vales to a flat list of updates
     update => update.get(
       'values'
     ).map(
+      // Turn value into a [ path, value ] array
       value => [
         pathToSeq(
           message.get('context', 'self')
@@ -44,6 +46,7 @@ const update = R.curry(
       ]
     )
   ).reduce(
+    // Apply [ path, value ] arrays to state
     (state, update) => state.setIn(...update),
     state
   )
@@ -52,33 +55,25 @@ const update = R.curry(
 /**
  * Apply messages to state object
  *
- * @curried
- * @param {boolean} statistics
  * @param {immutable.Map} [state=immutable.Map]
  * @param {Object[]} details
  * @param {string} details[].direction sent or received
  * @param {immutable.Map} details[].message
  * @returns {immutable.Map}
  */
-const applyMessage = R.curry(
-  (statistics, state, [direction, message]) => R.compose(
-    direction === 'received'
-      ? update(message)
-      : R.identity,
-    statistics
-      ? state => state.updateIn(['statistics', direction], R.add(1))
-      : R.identity,
-    R.when(
-      R.isNil,
-      () => fromJS({
-        server: message,
-        statistics: statistics
-          ? { errors: 0, sent: 0, received: 0 }
-          : undefined
-      })
-    )
-  )(state)
-);
+const applyMessage = (state, [direction, message]) => R.compose(
+  direction === 'received' // Don't apply outgoing messages to state
+    ? update(message)
+    : R.identity,
+  state => state.updateIn(['statistics', direction], R.add(1)), // Update stats
+  R.when( // Setup default state for first message
+    R.isNil,
+    () => fromJS({
+      server: message,
+      statistics: { errors: 0, sent: 0, received: 0 }
+    })
+  )
+)(state);
 
 /**
  * Connects to a Signal K delta endpoint, and streams immutable states.
@@ -87,22 +82,19 @@ const applyMessage = R.curry(
  * @param {string} url
  * @param {object} options
  * @param {flyd.stream} [options.writeStream=flyd.stream] outgoing data stream
- * @param {boolean} [options.statistics=true] add statistics object
  * @returns {flyd.stream<immutable.Map>}
  */
 const kumara = (url, {
-  writeStream = flyd.stream(),
-  statistics = true
+  writeStream = flyd.stream()
 } = {}) => R.compose(
   R.tap(s => flyd.on(writeStream.end, s.end)), // TODO: Find a cleaner approach for connecting stream.ends
   filter(R.identity),
-  flyd.scan(
-    applyMessage(statistics), undefined
-  ),
-  readStream => flyd.merge(
+  flyd.scan(applyMessage, undefined),
+  readStream => flyd.merge( // Tag messages as incoming or outgoing, then merge
     writeStream.map(R.pair('sent')),
     readStream.map(R.pair('received'))
   ),
+  R.map(fromJS),
   wsstream
 )(
   url, writeStream

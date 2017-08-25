@@ -1,3 +1,5 @@
+import R from 'ramda';
+import flyd from 'flyd';
 import WebSocket from 'universal-websocket-client';
 
 /**
@@ -6,14 +8,13 @@ import WebSocket from 'universal-websocket-client';
  *
  * @param {string} url
  * @param {flyd.stream} writeStream outgoing data stream
- * @returns {flyd.stream<immutable.Map>}
+ * @returns {flyd.stream<object>}
  */
 const wsstream = (url, writeStream) => {
   const readStream = flyd.stream();
   const socket = new WebSocket(url);
   socket.addEventListener('message', R.compose(
     readStream,
-    fromJS,
     JSON.parse,
     R.prop('data')
   ));
