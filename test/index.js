@@ -35,10 +35,12 @@ tape.test('Receive data', test => {
           return test.deepEqual(
             data,
             {
-              'statistics': {
-                'errors': 0,
-                'sent': 0,
-                'received': 1
+              'kumara': {
+                'statistics': {
+                  'errors': 0,
+                  'sent': 0,
+                  'received': 1
+                }
               },
               'server': {
                 'name': 'signalk-server',
@@ -55,10 +57,12 @@ tape.test('Receive data', test => {
           return test.deepEqual(
             R.dissoc('vessels', data),
             {
-              'statistics': {
-                'errors': 0,
-                'sent': 0,
-                'received': 2
+              'kumara': {
+                'statistics': {
+                  'errors': 0,
+                  'sent': 0,
+                  'received': 2
+                }
               },
               'server': {
                 'name': 'signalk-server',

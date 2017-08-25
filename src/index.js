@@ -65,12 +65,12 @@ const applyMessage = (state, [direction, message]) => R.compose(
   direction === 'received' // Don't apply outgoing messages to state
     ? update(message)
     : R.identity,
-  state => state.updateIn(['statistics', direction], R.add(1)), // Update stats
+  state => state.updateIn(['kumara', 'statistics', direction], R.add(1)),
   R.when( // Setup default state for first message
     R.isNil,
     () => fromJS({
       server: message,
-      statistics: { errors: 0, sent: 0, received: 0 }
+      kumara: { statistics: { errors: 0, sent: 0, received: 0 } }
     })
   )
 )(state);
@@ -88,7 +88,7 @@ const kumara = (url, {
   writeStream = flyd.stream()
 } = {}) => R.compose(
   R.tap(s => flyd.on(writeStream.end, s.end)), // TODO: Find a cleaner approach for connecting stream.ends
-  filter(R.identity),
+  filter(R.identity), // Drop first state from scan (undefined)
   flyd.scan(applyMessage, undefined),
   readStream => flyd.merge( // Tag messages as incoming or outgoing, then merge
     writeStream.map(R.pair('sent')),

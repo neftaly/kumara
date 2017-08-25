@@ -11,7 +11,7 @@ You can also send messages back to the server, such as subscribe/unsubscribe req
 * *url*: optional options object
   * *writeStream*: Flyd stream of outgoing sK messages
 
-Returns [Flyd](https://github.com/paldepind/flyd) stream of [immutable](https://facebook.github.io/immutable-js/) sK states, with a `statistics` property.
+Returns [Flyd](https://github.com/paldepind/flyd) stream of [immutable](https://facebook.github.io/immutable-js/) sK states, with a `kumara` property containing things such as `statistics`.
 
 ## Example
 ```js
@@ -36,10 +36,12 @@ sK.map(
 This would return a bunch of messages such as the following:
 ```json
 {
-  "statistics": {
-    "errors": 0,
-    "sent": 0,
-    "received": 3
+  "kumara": {
+    "statistics": {
+      "errors": 0,
+      "sent": 0,
+      "received": 3
+    }
   },
   "server": {
     "name": "signalk-server",
