@@ -1,7 +1,7 @@
-const tape = require('tape');
-const R = require('ramda');
-const flyd = require('flyd');
-const kumara = require('../src').default;
+import tape from 'tape';
+import R from 'ramda';
+import flyd from 'flyd';
+import kumara from '../src';
 
 tape.test('Send data', test => {
   test.plan(1);
