@@ -2,7 +2,7 @@ import R from 'ramda';
 import flyd from 'flyd';
 import filter from 'flyd/module/filter';
 import { fromJS, Seq, List } from 'immutable';
-import WebSocket from 'universal-websocket-client';
+import { wsstream } from './lib';
 
 /**
  * Converts a Signal K path to an immutable Seq
@@ -50,30 +50,6 @@ const update = R.curry(
 );
 
 /**
- * Connects to an endpoint, and returns a stream of single-update deltas.
- * Messages can be sent to the endpoint via the write stream.
- *
- * @param {string} url
- * @param {flyd.stream} writeStream outgoing data stream
- * @returns {flyd.stream<immutable.Map>}
- */
-const connection = (url, writeStream) => {
-  const readStream = flyd.stream();
-  const socket = new WebSocket(url);
-  socket.addEventListener('message', R.compose(
-    readStream,
-    fromJS,
-    JSON.parse,
-    R.prop('data')
-  ));
-  socket.addEventListener('close', () => readStream.end(true));
-  flyd.on(() => socket.close(), writeStream.end);
-  flyd.on(() => socket.close(), readStream.end);
-  writeStream.map(JSON.parse).map(socket.send);
-  return readStream;
-};
-
-/**
  * Apply messages to state object
  *
  * @curried
@@ -118,26 +94,23 @@ const kumara = (url, {
   writeStream = flyd.stream(),
   statistics = true
 } = {}) => R.compose(
-  R.tap(s => flyd.on(writeStream.end, s.end)), // TODO: Find a cleaner approach to connect stream.ends
+  R.tap(s => flyd.on(writeStream.end, s.end)), // TODO: Find a cleaner approach for connecting stream.ends
   filter(R.identity),
   flyd.scan(
-    applyMessage(statistics),
-    undefined
+    applyMessage(statistics), undefined
   ),
   readStream => flyd.merge(
-    writeStream.map(m => ['sent', m]),
-    readStream.map(m => ['received', m])
+    writeStream.map(R.pair('sent')),
+    readStream.map(R.pair('received'))
   ),
-  connection
+  wsstream
 )(
-  url,
-  writeStream
+  url, writeStream
 );
 
 export {
   pathToSeq,
   update,
-  connection,
   applyMessage
 };
 export default kumara;
