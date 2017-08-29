@@ -1,108 +1,97 @@
 import R from 'ramda';
-import { fromJS, Seq, List } from 'immutable';
+import { fromJS } from 'immutable';
 import flyd from 'flyd';
-import filter from 'flyd/module/filter';
-import { wsstream } from './lib';
+import fetch from 'isomorphic-fetch';
+import websocket from './flyd-websocket';
 
 /**
- * Converts a Signal K path to an immutable Seq
+ * Connects to a sK server, and returns websocket URL & initial state.
+ *
+ * @param {string} url
+ * @returns {Promise<[ websocketUrl, initialState ]>}
+ */
+const lookup = async url => {
+  const {
+    'signalk-http': httpUrl,
+    'signalk-ws': wsUrl
+  } = await R.composeP(
+    R.path(['endpoints', 'v1']),
+    R.invoker(0, 'json'),
+    fetch
+  )(url);
+  const initial = await R.composeP(
+    fromJS,
+    R.invoker(0, 'json'),
+    fetch
+  )(httpUrl);
+  return [ wsUrl, initial ];
+};
+
+/**
+ * Converts a Signal K path to an array
  *
  * @param {string} path
- * @returns {immutable.Seq.Indexed}
+ * @returns {array}
  */
-const pathToSeq = R.memoize(
-  R.compose(
-    R.constructN(1, Seq),
-    R.filter(R.identity),
-    R.split('.')
-  )
-);
+const getPath = R.memoize(R.split('.'));
 
 /**
  * Apply delta message to state
  *
- * @curried
- * @param {immutable.Map} [message=empty]
  * @param {immutable.Map} state
+ * @param {Object} message
  * @returns {immutable.Map} new state
  */
-const update = R.curry(
-  (message, state) => message.get(
-    'updates',
-    new List()
-  ).flatMap(
-    // Convert vales to a flat list of updates
-    update => update.get(
-      'values'
-    ).map(
-      // Turn value into a [ path, value ] array
-      value => [
-        pathToSeq(
-          message.get('context', 'self')
-        ).concat(
-          pathToSeq(value.get('path'))
-        ),
-        value.get('value')
-      ]
-    )
-  ).reduce(
-    // Apply [ path, value ] arrays to state
+const update = (state, {
+  updates = [],
+  context = 'self'
+}) => R.compose(
+  R.reduce(
     (state, update) => state.setIn(...update),
     state
-  )
-);
-
-/**
- * Apply messages to state object
- *
- * @param {immutable.Map} [state=immutable.Map]
- * @param {Object[]} details
- * @param {string} details[].direction sent or received
- * @param {immutable.Map} details[].message
- * @returns {immutable.Map}
- */
-const applyMessage = (state, [direction, message]) => R.compose(
-  direction === 'received' // Don't apply outgoing messages to state
-    ? update(message)
-    : R.identity,
-  state => state.updateIn(['kumara', 'statistics', direction], R.add(1)),
-  R.when( // Setup default state for first message
-    R.isNil,
-    () => fromJS({
-      server: message,
-      kumara: { statistics: { errors: 0, sent: 0, received: 0 } }
-    })
-  )
-)(state);
+  ),
+  R.chain(R.compose(
+    R.map(
+      ({ path, value }) => [
+        [ ...getPath(context), ...getPath(path), 'value' ],
+        fromJS(value)
+      ]
+    ),
+    R.prop('values')
+  ))
+)(updates);
 
 /**
  * Connects to a Signal K delta endpoint, and streams immutable states.
  * Accepts a flyd stream for sending data back to the delta endpoint.
  *
- * @param {string} url
+ * @param {string} serverUrl
  * @param {object} options
  * @param {flyd.stream} [options.writeStream=flyd.stream] outgoing data stream
  * @returns {flyd.stream<immutable.Map>}
  */
-const kumara = (url, {
+const kumara = (serverUrl, {
+  subscribe = 'all',
   writeStream = flyd.stream()
-} = {}) => R.compose(
-  R.tap(s => flyd.on(writeStream.end, s.end)), // TODO: Find a cleaner approach for connecting stream.ends
-  filter(R.identity), // Drop first state from scan (undefined)
-  flyd.scan(applyMessage, undefined),
-  readStream => flyd.merge( // Tag messages as incoming or outgoing, then merge
-    writeStream.map(R.pair('sent')),
-    readStream.map(R.pair('received'))
-  ),
-  R.map(fromJS),
-  wsstream
-)(
-  url, writeStream
-);
+} = {}) => {
+  const readStream = flyd.stream();
+  lookup(serverUrl).then(
+    ([ wsUrl, initial ]) => R.compose(
+      flyd.map(readStream),
+      flyd.scan(update, initial),
+      flyd.map(JSON.parse),
+      websocket
+    )(
+      wsUrl + '?subscribe=' + subscribe,
+      writeStream.map(JSON.stringify)
+    )
+  );
+  return readStream;
+};
 
 export {
-  pathToSeq,
-  update,
-  applyMessage
+  lookup,
+  getPath,
+  update
 };
 export default kumara;

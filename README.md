@@ -1,17 +1,18 @@
 # 🍠 Kūmara [![CircleCI](https://circleci.com/gh/neftaly/kumara.svg?style=shield)](https://circleci.com/gh/neftaly/kumara)
 
 Kumara is a streaming [Signal K](http://signalk.org) implementation.
-It connects to a [sK delta stream](http://signalk.org/specification/master/streaming_api.html) and returns a live-updating sK state object.
+It connects to a sK server, and returns a live-updating sK state object.
 
 You can also send messages back to the server, such as subscribe/unsubscribe requests, or commands for connected devices.
 
 ## API
 ### `kumara` (**url**, **options**)
-* *url*: sK websocket URL
-* *url*: optional options object
+* *serverUrl*: sK server URL
+* *options*: optional options object
   * *writeStream*: Flyd stream of outgoing sK messages
+  * *subscribe*: Subscription list (default: all)
 
-Returns [Flyd](https://github.com/paldepind/flyd) stream of [immutable](https://facebook.github.io/immutable-js/) sK states, with a `kumara` property containing things such as `statistics`.
+Returns [Flyd](https://github.com/paldepind/flyd) stream of [immutable](https://facebook.github.io/immutable-js/) sK states.
 
 ## Example
 ```js
@@ -20,7 +21,7 @@ import flyd from 'flyd';
 
 const writeStream = flyd.stream();
 
-const sK = kumara('ws://demo.signalk.org/signalk/v1/stream?subscribe=all', {
+const sK = kumara('http://demo.signalk.org/signalk', {
   writeStream // Optional 
 });
 
@@ -36,43 +37,44 @@ sK.map(
 This would return a bunch of messages such as the following:
 ```json
 {
-  "kumara": {
-    "statistics": {
-      "errors": 0,
-      "sent": 0,
-      "received": 3
-    }
-  },
-  "server": {
-    "name": "signalk-server",
-    "version": "0.1.25",
-    "timestamp": "2017-07-28T01:37:08.882Z",
-    "self": "urn:mrn:signalk:uuid:c0d79334-4e25-4245-8892-54e8ccc8021d",
-    "roles": [
-      "master",
-      "main"
-    ]
-  },
+  "version": "0.1.25",
+  "self": "urn:mrn:signalk:uuid:c0d79334-4e25-4245-8892-54e8ccc8021d",
   "vessels": {
-    "urn:mrn:imo:mmsi:230053990": {
-      "navigation": {
-        "speedOverGround": 3.65,
-        "courseOverGroundTrue": 3.3667,
-        "position": {
-          "longitude": 24.7194917,
-          "latitude": 59.67997
-        }
-      }
-    },
     "urn:mrn:signalk:uuid:c0d79334-4e25-4245-8892-54e8ccc8021d": {
       "environment": {
-        "wind": {
-          "speedApparent": 6.38,
-          "angleApparent": 0.646
+        "current": {
+          "meta": {
+            "label": "Current Vector (Set & Drift)",
+            "units": "m/s",
+            "convertTo": "kt",
+            "min": 0,
+            "max": 30
+          },
+          "setTrue": 2.1276,
+          "drift": 0.37,
+          "$source": "n2kFromFile.160",
+          "timestamp": "2014-08-15T19:08:03.182",
+          "pgn": 130577,
+          "value": 13.269
+        }
+      }
+    }
+  },
+  "atons": {
+    "urn:mrn:imo:mmsi:undefined": {
+      "mmsi": "undefined",
+      "navigation": {
+        "position": {
+          "longitude": null,
+          "latitude": null,
+          "$source": "n2kFromFile.43",
+          "timestamp": "2014-08-15T19:08:01.956",
+          "pgn": 129041
         }
       }
     }
   }
+}
 ```
 
 To look up the wind data of the current vessel:
@@ -82,9 +84,10 @@ sK.map(
   // Equivalent of `state.vessels[state.server.self].environment.wind`
   state => state.getIn([
     'vessels',
-    state.getIn(['server', 'self']), // Lookup ID of current vessel
+    state.get('self'), // Lookup ID of current vessel
     'environment',
-    'wind'
+    'wind',
+    'value'
   ])
 ).map(
   wind => wind.toJS()
