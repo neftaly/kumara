@@ -83,6 +83,7 @@ const kumara = (serverUrl, {
       websocket
     )(
       wsUrl + '?subscribe=' + subscribe,
+      undefined,
       writeStream.map(JSON.stringify)
     )
   );
