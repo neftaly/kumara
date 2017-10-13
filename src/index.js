@@ -1,8 +1,19 @@
-import R from 'ramda';
+import {
+  compose,
+  composeP,
+  path,
+  invoker,
+  split,
+  reduce,
+  chain,
+  map,
+  prop
+} from 'ramda';
 import { fromJS } from 'immutable';
 import flyd from 'flyd';
 import fetch from 'isomorphic-fetch';
 import websocket from './flyd-websocket';
+import memoizee from 'memoizee';
 
 /**
  * Connects to a sK server, and returns websocket URL & initial state.
@@ -14,14 +25,14 @@ const lookup = async url => {
   const {
     'signalk-http': httpUrl,
     'signalk-ws': wsUrl
-  } = await R.composeP(
-    R.path(['endpoints', 'v1']),
-    R.invoker(0, 'json'),
+  } = await composeP(
+    path(['endpoints', 'v1']),
+    invoker(0, 'json'),
     fetch
   )(url);
-  const initial = await R.composeP(
+  const initial = await composeP(
     fromJS,
-    R.invoker(0, 'json'),
+    invoker(0, 'json'),
     fetch
   )(httpUrl);
   return [ wsUrl, initial ];
@@ -33,7 +44,7 @@ const lookup = async url => {
  * @param {string} path
  * @returns {array}
  */
-const getPath = R.memoize(R.split('.'));
+const getPath = memoizee(split('.'));
 
 /**
  * Apply delta message to state
@@ -45,19 +56,19 @@ const getPath = R.memoize(R.split('.'));
 const update = (state, {
   updates = [],
   context = 'self'
-}) => R.compose(
-  R.reduce(
+}) => compose(
+  reduce(
     (state, update) => state.setIn(...update),
     state
   ),
-  R.chain(R.compose(
-    R.map(
+  chain(compose(
+    map(
       ({ path, value }) => [
         [ ...getPath(context), ...getPath(path), 'value' ],
         fromJS(value)
       ]
     ),
-    R.prop('values')
+    prop('values')
   ))
 )(updates);
 
@@ -76,7 +87,7 @@ const kumara = (serverUrl, {
 } = {}) => {
   const readStream = flyd.stream();
   lookup(serverUrl).then(
-    ([ wsUrl, initial ]) => R.compose(
+    ([ wsUrl, initial ]) => compose(
       flyd.map(readStream),
       flyd.scan(update, initial),
       flyd.map(JSON.parse),

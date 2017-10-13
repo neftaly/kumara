@@ -1,5 +1,5 @@
 import tape from 'tape';
-// import R from 'ramda';
+// import * as R from 'ramda';
 // import flyd from 'flyd';
 // import kumara from '../src';
 
